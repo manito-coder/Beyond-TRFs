@@ -2,13 +2,57 @@ from dependencies import *
 from constants import *
 from paths import *
 
-# Utility function to get subject list --------------------------------------------------
-def get_subjects():
-    SUBJECTS = [path.stem.split("_")[0] for path in FUGLSANG_DATA_PREPROC.glob("*.mat")]
-    SUBJECTS = sorted(SUBJECTS, key=lambda x: int(re.search(r'S(\d+)', x).group(1)))
-    return SUBJECTS
+# ————————————————————————————————————————————————————————————————————————————————————————————
+# GLOBAL FUNCTIONS
 
-def get_trf_model_name(predictors: PREDICTOR_TYPE, attention: ATTENTION_TYPE, model: MODEL_TYPE, padded=False):
+def load_trfs(dataset, subjects, checks, trf_dir):
+    """
+    Load TRFs for all subjects and checks.
+
+    Returns:
+        trf_data:   dict keyed by model_name -> list of TRFs (one per subject)
+        n_subjects: number of subjects successfully loaded
+    """
+    subjects  = subjects
+    trf_data  = {get_trf_model_name(dataset, p, a, m, pad): [] for p, a, m, pad in checks}
+    skipped   = []
+    loaded    = []
+
+    for subject in subjects:
+        missing = [
+            get_trf_model_name(dataset, p, a, m, pad)
+            for p, a, m, pad in checks
+            if not (trf_dir / subject / f"{subject}_{get_trf_model_name(dataset, p, a, m, pad)}_trf.pickle").exists()
+        ]
+
+        if missing:
+            print(f"  ✗ {subject}: skipping — missing {len(missing)} TRF(s):")
+            for name in missing:
+                print(f"      - {name}")
+            skipped.append(subject)
+            continue
+
+        for p, a, m, pad in checks:
+            name = get_trf_model_name(dataset, p, a, m, pad)
+            if dataset == DATASET_TYPE.FUGLSANG:
+                path = trf_dir / subject / f"{subject}_{name}_trf.pickle"
+            elif dataset == DATASET_TYPE.ALICE:
+                path = trf_dir / subject / f"{subject} {name}_trf.pickle"
+            trf_data[name].append(eelbrain.load.unpickle(path))
+
+        loaded.append(subject)
+        print(f"  ✓ {subject}")
+
+    print(f"\nLoaded: {len(loaded)} subjects | Skipped: {len(skipped)} subjects")
+    if skipped:
+        print(f"  Skipped: {skipped}")
+
+    n_subjects = len(loaded)
+    return trf_data, n_subjects
+
+
+
+def get_trf_model_name(dataset: DATASET_TYPE, predictors: PREDICTOR_TYPE|list[PREDICTOR_TYPE], attention: ATTENTION_TYPE, model: MODEL_TYPE, padded: bool=False):
     """
     Generate standardized TRF model names.
 
@@ -19,50 +63,78 @@ def get_trf_model_name(predictors: PREDICTOR_TYPE, attention: ATTENTION_TYPE, mo
         backward_attended_envelope+envelope_onset_padded
     """
 
-    # Ensure predictors is iterable
+    # ————————————————————————————————————————————————————
+    # GENERALISE PREDICTORS
     if isinstance(predictors, PREDICTOR_TYPE):
         predictors = [predictors]
 
-    # Sort for consistency
     predictors = sorted(predictors, key=lambda p: p.value)
+    predictor_names = "+".join(
+        map_predictor_name(p, dataset) for p in predictors
+    )
 
-    predictor_names = "+".join(p.value for p in predictors)
+    # ————————————————————————————————————————————————————
+    # BLOCK FOR BUILDING TRF NAMES IN THE FUGLSANG DATASET
+    if dataset == DATASET_TYPE.FUGLSANG:
+        name = f"{model.value}_{attention.value}_{predictor_names}"
+        if padded:
+            name += "_padded"
 
-    # Build name
-    name = f"{model.value}_{attention.value}_{predictor_names}"
+        return name
+    
+    # ————————————————————————————————————————————————————
+    # BLOCK FOR BUILDING TRF NAMES IN THE ALICE DATASET
+    elif dataset == DATASET_TYPE.ALICE:
+        parts = []
+        # Only include "decoder" for backward
+        if model == MODEL_TYPE.BACKWARD:
+            parts.append("decoder")
+        # Alice ignores attention
+        parts.append(predictor_names)
+        name = "_".join(parts)
 
-    if padded:
-        name += "_padded"
+        return name
 
-    return name
+    else:
+        raise ValueError(f"Unknown dataset: {dataset}")
+    
 
-def get_predictor_name(predictors, attention: ATTENTION_TYPE, padded=False):
-    """
-    Generate standardized predictor names.
 
-    Format:
-        <attention_type>_<predictor1+predictor2>[ _padded ]
+def map_predictor_name(predictor: PREDICTOR_TYPE, dataset: DATASET_TYPE):
+    if dataset == DATASET_TYPE.FUGLSANG:
+        return predictor.value
 
-    Example:
-        attended_envelope+envelope_onset_padded
-    """
+    elif dataset == DATASET_TYPE.ALICE:
+        mapping = {
+            PREDICTOR_TYPE.ENVELOPE: "envelope_log",
+            PREDICTOR_TYPE.ENVELOPE_ONSET: "envelope_log_onset",
+        }
+        return mapping[predictor]
 
-    # Ensure predictors is iterable
-    if isinstance(predictors, PREDICTOR_TYPE):
-        predictors = [predictors]
+    else:
+        raise ValueError(f"Unknown dataset: {dataset}")
 
-    # Sort for consistency
-    predictors = sorted(predictors, key=lambda p: p.value)
+# ————————————————————————————————————————————————————————————————————————————————————————————
+# FUGLSANG FUNCTIONS
 
-    predictor_names = "+".join(p.value for p in predictors)
+# Utility function to get subject list 
+def fuglsang_get_subjects():
+    subjects = [path.stem.split("_")[0] for path in FUGLSANG_DATA_PREPROC.glob("*.mat")]
+    subjects = sorted(subjects, key=lambda x: int(re.search(r'S(\d+)', x).group(1)))
+    return subjects
 
-    # Build name
-    name = f"{attention.value}_{predictor_names}"
+# ————————————————————————————————————————————————————————————————————————————————————————————
+# ALICE FUNCTIONS
 
-    if padded:
-        name += "_padded"
+# Utility function to get subject list
+def alice_get_subjects():
+    subjects = [path.name for path in ALICE_EEG_DIR.iterdir() if path.is_dir()]
+    subjects = sorted(subjects, key=lambda x: int(re.search(r'S(\d+)', x).group(1)))
+    return subjects
 
-    return name
+
+# ————————————————————————————————————————————————————————————————————————————————————————————
+# PLOTTING FUNCTIONS
 
 def set_plot_style():
     FONT      = 'Arial'
@@ -84,47 +156,6 @@ def set_plot_style():
     }
     plt.rcParams.update(RC)
 
-def load_trfs(subjects, checks, trf_dir=FUGLSANG_TRF_DIR):
-    """
-    Load TRFs for all subjects and checks.
-
-    Returns:
-        trf_data:   dict keyed by model_name -> list of TRFs (one per subject)
-        n_subjects: number of subjects successfully loaded
-    """
-    subjects  = subjects
-    trf_data  = {get_trf_model_name(p, a, m, pad): [] for p, a, m, pad in checks}
-    skipped   = []
-    loaded    = []
-
-    for subject in subjects:
-        missing = [
-            get_trf_model_name(p, a, m, pad)
-            for p, a, m, pad in checks
-            if not (trf_dir / subject / f"{subject}_{get_trf_model_name(p, a, m, pad)}_trf.pickle").exists()
-        ]
-
-        if missing:
-            print(f"  ✗ {subject}: skipping — missing {len(missing)} TRF(s):")
-            for name in missing:
-                print(f"      - {name}")
-            skipped.append(subject)
-            continue
-
-        for p, a, m, pad in checks:
-            name = get_trf_model_name(p, a, m, pad)
-            path = trf_dir / subject / f"{subject}_{name}_trf.pickle"
-            trf_data[name].append(eelbrain.load.unpickle(path))
-
-        loaded.append(subject)
-        print(f"  ✓ {subject}")
-
-    print(f"\nLoaded: {len(loaded)} subjects | Skipped: {len(skipped)} subjects")
-    if skipped:
-        print(f"  Skipped: {skipped}")
-
-    n_subjects = len(loaded)
-    return trf_data, n_subjects
 
 # Utility function to get significance marker based on p-value --------------------------------------------------
 def sig_marker(p):

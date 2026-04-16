@@ -5,16 +5,21 @@ from dependencies import *
 # =============================================================================
 
 class PREDICTOR_TYPE(Enum):
-    ENVELOPE                 = "envelope"
-    ENVELOPE_ONSET           = "envelope_onset"
+    ENVELOPE = "envelope"
+    ENVELOPE_ONSET = "envelope_onset"
 
 class ATTENTION_TYPE(Enum):
     ATTENDED = "attended"
     IGNORED  = "ignored"
+    SINGLE = ""
 
 class MODEL_TYPE(Enum):
     FORWARD  = "forward"
     BACKWARD = "backward"
+
+class DATASET_TYPE(Enum):
+    FUGLSANG = "fuglsang"
+    ALICE = "alice"
 
 # =============================================================================
 # DOWNLOAD URLs
