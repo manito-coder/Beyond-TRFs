@@ -19,11 +19,21 @@ def load_trfs(dataset, subjects, checks, trf_dir):
     loaded    = []
 
     for subject in subjects:
+        missing = []
+        for p, a, m, pad in checks:
+            if dataset == DATASET_TYPE.FUGLSANG:
+                if not (trf_dir / subject / f"{subject}_{get_trf_model_name(dataset, p, a, m, pad)}_trf.pickle").exists():
+                    missing.append(get_trf_model_name(dataset, p, a, m, pad))
+            elif dataset == DATASET_TYPE.ALICE:
+                if not (trf_dir / subject / f"{subject} {get_trf_model_name(dataset, p, a, m, pad)}.pickle").exists():
+                    missing.append(get_trf_model_name(dataset, p, a, m, pad))
+        '''
         missing = [
             get_trf_model_name(dataset, p, a, m, pad)
             for p, a, m, pad in checks
             if not (trf_dir / subject / f"{subject}_{get_trf_model_name(dataset, p, a, m, pad)}_trf.pickle").exists()
         ]
+        '''
 
         if missing:
             print(f"  ✗ {subject}: skipping — missing {len(missing)} TRF(s):")
@@ -37,7 +47,7 @@ def load_trfs(dataset, subjects, checks, trf_dir):
             if dataset == DATASET_TYPE.FUGLSANG:
                 path = trf_dir / subject / f"{subject}_{name}_trf.pickle"
             elif dataset == DATASET_TYPE.ALICE:
-                path = trf_dir / subject / f"{subject} {name}_trf.pickle"
+                path = trf_dir / subject / f"{subject} {name}.pickle"
             trf_data[name].append(eelbrain.load.unpickle(path))
 
         loaded.append(subject)
@@ -91,7 +101,7 @@ def get_trf_model_name(dataset: DATASET_TYPE, predictors: PREDICTOR_TYPE|list[PR
             parts.append("decoder")
         # Alice ignores attention
         parts.append(predictor_names)
-        name = "_".join(parts)
+        name = "-".join(parts)
 
         return name
 
@@ -131,6 +141,10 @@ def alice_get_subjects():
     subjects = [path.name for path in ALICE_EEG_DIR.iterdir() if path.is_dir()]
     subjects = sorted(subjects, key=lambda x: int(re.search(r'S(\d+)', x).group(1)))
     return subjects
+
+def alice_get_durations(envelope, STIMULI):
+    durations = [gt.time.tmax for stimulus, gt in zip(STIMULI, envelope)]
+    return durations
 
 
 # ————————————————————————————————————————————————————————————————————————————————————————————
