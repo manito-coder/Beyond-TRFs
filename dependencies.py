@@ -7,6 +7,7 @@ import mne
 import re
 import os
 import pandas as pd
+import copy
 
 # IMPORT MODULES
 from pathlib import Path
@@ -16,4 +17,5 @@ from matplotlib.gridspec import GridSpecFromSubplotSpec
 from matplotlib import colors
 
 from scipy.stats import ttest_rel, pearsonr, ttest_1samp, zscore
+from scipy.optimize import linear_sum_assignment
 from enum import Enum

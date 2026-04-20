@@ -25,7 +25,7 @@ def load_trfs(dataset, subjects, checks, trf_dir):
                 if not (trf_dir / subject / f"{subject}_{get_trf_model_name(dataset, p, a, m, pad)}_trf.pickle").exists():
                     missing.append(get_trf_model_name(dataset, p, a, m, pad))
             elif dataset == DATASET_TYPE.ALICE:
-                if not (trf_dir / subject / f"{subject} {get_trf_model_name(dataset, p, a, m, pad)}.pickle").exists():
+                if not (trf_dir / subject / f"{subject} 64hz-{get_trf_model_name(dataset, p, a, m, pad)}.pickle").exists():
                     missing.append(get_trf_model_name(dataset, p, a, m, pad))
         '''
         missing = [
@@ -47,7 +47,7 @@ def load_trfs(dataset, subjects, checks, trf_dir):
             if dataset == DATASET_TYPE.FUGLSANG:
                 path = trf_dir / subject / f"{subject}_{name}_trf.pickle"
             elif dataset == DATASET_TYPE.ALICE:
-                path = trf_dir / subject / f"{subject} {name}.pickle"
+                path = trf_dir / subject / f"{subject} 64hz-{name}.pickle"
             trf_data[name].append(eelbrain.load.unpickle(path))
 
         loaded.append(subject)
@@ -117,7 +117,7 @@ def map_predictor_name(predictor: PREDICTOR_TYPE, dataset: DATASET_TYPE):
     elif dataset == DATASET_TYPE.ALICE:
         mapping = {
             PREDICTOR_TYPE.ENVELOPE: "envelope_log",
-            PREDICTOR_TYPE.ENVELOPE_ONSET: "envelope_log_onset",
+            PREDICTOR_TYPE.ENVELOPE_ONSET: "envelope_onset",
         }
         return mapping[predictor]
 
