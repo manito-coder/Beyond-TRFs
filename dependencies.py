@@ -2,6 +2,7 @@
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+import matplotlib.lines as mlines
 import eelbrain
 import mne
 import re
