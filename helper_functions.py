@@ -110,6 +110,35 @@ def get_trf_model_name(dataset: DATASET_TYPE, predictors: PREDICTOR_TYPE|list[PR
     
 
 
+def get_predictor_name(predictors, padded=False) -> str:
+    """
+    Format:
+        <predictor1+predictor2+...>[ _padded ]
+
+    Example:
+        envelope+envelope_onset_padded
+    """
+    if isinstance(predictors, PREDICTOR_TYPE):
+        predictors = [predictors]
+
+    predictors = sorted(predictors, key=lambda p: p.value)
+    name = "+".join(p.value for p in predictors)
+
+    if padded:
+        name += "_padded"
+
+    return name
+
+def get_attentional_predictor_name(predictors, attention: ATTENTION_TYPE, padded=False) -> str:
+    """
+    Format:
+        <attention_type>_<predictor_combination>
+
+    Example:
+        attended_envelope+envelope_onset_padded
+    """
+    return f"{attention.value}_{get_predictor_name(predictors, padded)}"
+
 def map_predictor_name(predictor: PREDICTOR_TYPE, dataset: DATASET_TYPE):
     if dataset == DATASET_TYPE.FUGLSANG:
         return predictor.value
