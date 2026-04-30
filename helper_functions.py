@@ -204,8 +204,8 @@ def aad_classifier(predictors, classifier_fn, subjects,
 
         # For LOO, load the TRF that excluded this subject
         if cv == CROSS_VALIDATION_TYPE.LOO:
-            trf_att = eelbrain.load.unpickle(FUGLSANG_GENERAL_TRF_DIR / f'loo_{subject}_{att_trf_name}.pickle')
-            trf_ign = eelbrain.load.unpickle(FUGLSANG_GENERAL_TRF_DIR / f'loo_{subject}_{ign_trf_name}.pickle')
+            trf_att = eelbrain.load.unpickle(FUGLSANG_GENERAL_TRF_DIR / f'loocv_{subject}_{att_trf_name}.pickle')
+            trf_ign = eelbrain.load.unpickle(FUGLSANG_GENERAL_TRF_DIR / f'loocv_{subject}_{ign_trf_name}.pickle')
 
         eeg = eelbrain.load.unpickle(
             FUGLSANG_EEG_DIR / subject / f'{subject}_eeg.pickle'
