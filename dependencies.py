@@ -16,6 +16,8 @@ from matplotlib.patches import ConnectionPatch, Patch
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 from matplotlib.gridspec import GridSpecFromSubplotSpec
 from matplotlib import colors
+from tqdm import tqdm
+
 
 from scipy.stats import ttest_rel, pearsonr, ttest_1samp, zscore
 from scipy.optimize import linear_sum_assignment

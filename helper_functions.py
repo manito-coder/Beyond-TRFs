@@ -14,24 +14,24 @@ def load_trfs(dataset, subjects, checks, trf_dir):
         n_subjects: number of subjects successfully loaded
     """
     subjects  = subjects
-    trf_data  = {get_trf_model_name(dataset, p, a, m, pad): [] for p, a, m, pad in checks}
+    trf_data  = {get_trf_model_name(dataset, p, a, m): [] for p, a, m in checks}
     skipped   = []
     loaded    = []
 
     for subject in subjects:
         missing = []
-        for p, a, m, pad in checks:
+        for p, a, m in checks:
             if dataset == DATASET_TYPE.FUGLSANG:
-                if not (trf_dir / subject / f"{subject}_{get_trf_model_name(dataset, p, a, m, pad)}_trf.pickle").exists():
-                    missing.append(get_trf_model_name(dataset, p, a, m, pad))
+                if not (trf_dir / subject / f"{subject}_{get_trf_model_name(dataset, p, a, m)}_trf.pickle").exists():
+                    missing.append(get_trf_model_name(dataset, p, a, m))
             elif dataset == DATASET_TYPE.ALICE:
-                if not (trf_dir / subject / f"{subject} 64hz-{get_trf_model_name(dataset, p, a, m, pad)}.pickle").exists():
-                    missing.append(get_trf_model_name(dataset, p, a, m, pad))
+                if not (trf_dir / subject / f"{subject} 64hz-{get_trf_model_name(dataset, p, a, m)}.pickle").exists():
+                    missing.append(get_trf_model_name(dataset, p, a, m))
         '''
         missing = [
-            get_trf_model_name(dataset, p, a, m, pad)
-            for p, a, m, pad in checks
-            if not (trf_dir / subject / f"{subject}_{get_trf_model_name(dataset, p, a, m, pad)}_trf.pickle").exists()
+            get_trf_model_name(dataset, p, a, m)
+            for p, a, m in checks
+            if not (trf_dir / subject / f"{subject}_{get_trf_model_name(dataset, p, a, m)}_trf.pickle").exists()
         ]
         '''
 
@@ -42,8 +42,8 @@ def load_trfs(dataset, subjects, checks, trf_dir):
             skipped.append(subject)
             continue
 
-        for p, a, m, pad in checks:
-            name = get_trf_model_name(dataset, p, a, m, pad)
+        for p, a, m in checks:
+            name = get_trf_model_name(dataset, p, a, m)
             if dataset == DATASET_TYPE.FUGLSANG:
                 path = trf_dir / subject / f"{subject}_{name}_trf.pickle"
             elif dataset == DATASET_TYPE.ALICE:
@@ -58,56 +58,7 @@ def load_trfs(dataset, subjects, checks, trf_dir):
         print(f"  Skipped: {skipped}")
 
     n_subjects = len(loaded)
-    return trf_data, n_subjects
-
-
-
-def get_trf_model_name(dataset: DATASET_TYPE, predictors: PREDICTOR_TYPE|list[PREDICTOR_TYPE], attention: ATTENTION_TYPE, model: MODEL_TYPE, padded: bool=False):
-    """
-    Generate standardized TRF model names.
-
-    Format:
-        <model_type>_<trf_type>_<predictor1+predictor2>[ _padded ]
-
-    Example:
-        backward_attended_envelope+envelope_onset_padded
-    """
-
-    # ————————————————————————————————————————————————————
-    # GENERALISE PREDICTORS
-    if isinstance(predictors, PREDICTOR_TYPE):
-        predictors = [predictors]
-
-    predictors = sorted(predictors, key=lambda p: p.value)
-    predictor_names = "+".join(
-        map_predictor_name(p, dataset) for p in predictors
-    )
-
-    # ————————————————————————————————————————————————————
-    # BLOCK FOR BUILDING TRF NAMES IN THE FUGLSANG DATASET
-    if dataset == DATASET_TYPE.FUGLSANG:
-        name = f"{model.value}_{attention.value}_{predictor_names}"
-        if padded:
-            name += "_padded"
-
-        return name
-    
-    # ————————————————————————————————————————————————————
-    # BLOCK FOR BUILDING TRF NAMES IN THE ALICE DATASET
-    elif dataset == DATASET_TYPE.ALICE:
-        parts = []
-        # Only include "decoder" for backward
-        if model == MODEL_TYPE.BACKWARD:
-            parts.append("decoder")
-        # Alice ignores attention
-        parts.append(predictor_names)
-        name = "-".join(parts)
-
-        return name
-
-    else:
-        raise ValueError(f"Unknown dataset: {dataset}")
-    
+    return trf_data, n_subjects    
 
 
 def get_predictor_name(predictors, padded=False) -> str:
@@ -139,6 +90,56 @@ def get_attentional_predictor_name(predictors, attention: ATTENTION_TYPE, padded
     """
     return f"{attention.value}_{get_predictor_name(predictors, padded)}"
 
+    
+
+def get_trf_model_name(
+    dataset: DATASET_TYPE,
+    predictors: PREDICTOR_TYPE | list[PREDICTOR_TYPE],
+    attention: ATTENTION_TYPE,
+    model: MODEL_TYPE,
+    generalised: GENERALISATION_TYPE = GENERALISATION_TYPE.INDIVIDUAL,
+    padded: bool = False
+):
+    """
+    Generate standardized TRF model names.
+
+    Format:
+        [<generalisation_type>]_<model_type>_<trf_type>_<predictor1+predictor2>[ _padded ]
+
+    Example:
+        backward_attended_envelope+envelope_onset_padded
+    """
+    if isinstance(predictors, PREDICTOR_TYPE):
+        predictors = [predictors]
+
+    predictors = sorted(predictors, key=lambda p: p.value)
+    predictor_names = "+".join(
+        map_predictor_name(p, dataset) for p in predictors
+    )
+
+    if dataset == DATASET_TYPE.FUGLSANG:
+        name = f"{model.value}_{attention.value}_{predictor_names}"
+        if padded:
+            name += "_padded"
+
+    elif dataset == DATASET_TYPE.ALICE:
+        parts = []
+        if model == MODEL_TYPE.BACKWARD:
+            parts.append("decoder")
+        parts.append(predictor_names)
+        name = "-".join(parts)
+
+    else:
+        raise ValueError(f"Unknown dataset: {dataset}")
+
+    # Prepend generalisation prefix if not individual
+    if generalised != GENERALISATION_TYPE.INDIVIDUAL:
+        name = f"{generalised.value}_{name}"
+
+    return name
+
+
+
 def map_predictor_name(predictor: PREDICTOR_TYPE, dataset: DATASET_TYPE):
     if dataset == DATASET_TYPE.FUGLSANG:
         return predictor.value
@@ -152,6 +153,86 @@ def map_predictor_name(predictor: PREDICTOR_TYPE, dataset: DATASET_TYPE):
 
     else:
         raise ValueError(f"Unknown dataset: {dataset}")
+
+# ————————————————————————————————————————————————————————————————————————————————————————————
+# AAD FUNCTIONS
+
+def aad_single_classifier(eeg, true_att, true_ign, trf_att, trf_ign):
+    """
+    One generic TRF: reconstruct once, correlate against both stimuli.
+    Returns True if reconstruction correlates more with attended stimulus.
+    """
+    pred = eelbrain.convolve(trf_att, eeg).x
+    r_att = np.abs(np.corrcoef(pred, true_att)[0, 1])
+    r_ign = np.abs(np.corrcoef(pred, true_ign)[0, 1])
+    return r_att > r_ign, r_att, r_ign
+
+
+def aad_double_classifier(eeg, true_att, true_ign, att_trf, ign_trf):
+    """
+    Two condition-specific TRFs: reconstruct attended and ignored separately,
+    correlate each with its respective true stimulus.
+    Returns True if attended reconstruction wins.
+    """
+    pred_att = eelbrain.convolve(att_trf, eeg).x
+    pred_ign = eelbrain.convolve(ign_trf, eeg).x
+    r_att = np.abs(np.corrcoef(pred_att, true_att)[0, 1])
+    r_ign = np.abs(np.corrcoef(pred_ign, true_ign)[0, 1])
+    return r_att > r_ign, r_att, r_ign
+
+
+def aad_classifier(predictors, classifier_fn, subjects, 
+                   generalised=GENERALISATION_TYPE.AVERAGE, 
+                   cv=CROSS_VALIDATION_TYPE.HOLD_OUT):
+
+    att_predictor_name = get_attentional_predictor_name(predictors, ATTENTION_TYPE.ATTENDED)
+    ign_predictor_name = get_attentional_predictor_name(predictors, ATTENTION_TYPE.IGNORED)
+
+    att_trf_name = get_trf_model_name(DATASET_TYPE.FUGLSANG, predictors, ATTENTION_TYPE.ATTENDED, MODEL_TYPE.BACKWARD, generalised=generalised)
+    ign_trf_name = get_trf_model_name(DATASET_TYPE.FUGLSANG, predictors, ATTENTION_TYPE.IGNORED,  MODEL_TYPE.BACKWARD, generalised=generalised)
+
+    # For hold-out, one TRF for all subjects — load once
+    if cv == CROSS_VALIDATION_TYPE.HOLD_OUT:
+        trf_att = eelbrain.load.unpickle(FUGLSANG_GENERAL_TRF_DIR / f'hold_out_{att_trf_name}.pickle')
+        trf_ign = eelbrain.load.unpickle(FUGLSANG_GENERAL_TRF_DIR / f'hold_out_{ign_trf_name}.pickle')
+
+    decisions = {}
+    r_atts    = {}
+    r_igns    = {}
+
+    for subject in subjects:
+
+        # For LOO, load the TRF that excluded this subject
+        if cv == CROSS_VALIDATION_TYPE.LOO:
+            trf_att = eelbrain.load.unpickle(FUGLSANG_GENERAL_TRF_DIR / f'loo_{subject}_{att_trf_name}.pickle')
+            trf_ign = eelbrain.load.unpickle(FUGLSANG_GENERAL_TRF_DIR / f'loo_{subject}_{ign_trf_name}.pickle')
+
+        eeg = eelbrain.load.unpickle(
+            FUGLSANG_EEG_DIR / subject / f'{subject}_eeg.pickle'
+        )
+        true_att = eelbrain.load.unpickle(
+            FUGLSANG_PREDICTOR_DIR / subject / f'{att_predictor_name}_concat.pickle'
+        ).x
+        true_ign = eelbrain.load.unpickle(
+            FUGLSANG_PREDICTOR_DIR / subject / f'{ign_predictor_name}_concat.pickle'
+        ).x
+
+        decision, r_att, r_ign = classifier_fn(eeg, true_att, true_ign, trf_att, trf_ign)
+        decisions[subject] = decision
+        r_atts[subject]    = r_att
+        r_igns[subject]    = r_ign
+        print(f"{subject}: r_att={r_att:.3f}, r_ign={r_ign:.3f}")
+
+    acc = sum(decisions.values()) / len(subjects)
+    print(f"\n✅ Classification rate ({att_trf_name} vs {ign_trf_name}): {acc:.2%}")
+    print('\n' + '─' * 60 + '\n')
+
+    return acc, decisions, r_atts, r_igns
+
+
+
+
+
 
 # ————————————————————————————————————————————————————————————————————————————————————————————
 # FUGLSANG FUNCTIONS

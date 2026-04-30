@@ -17,6 +17,15 @@ class MODEL_TYPE(Enum):
     FORWARD  = "forward"
     BACKWARD = "backward"
 
+class GENERALISATION_TYPE(Enum):
+    POOLED = "pooled"
+    AVERAGE = "averaged"
+    INDIVIDUAL = "individual"
+
+class CROSS_VALIDATION_TYPE(Enum):
+    HOLD_OUT = "hold_out"
+    LOO = "loo"
+
 class DATASET_TYPE(Enum):
     FUGLSANG = "fuglsang"
     ALICE = "alice"
