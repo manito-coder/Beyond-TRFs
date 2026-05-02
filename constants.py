@@ -30,6 +30,10 @@ class DATASET_TYPE(Enum):
     FUGLSANG = "fuglsang"
     ALICE = "alice"
 
+class AAD_APPROACH(Enum):
+    SINGLE = "single"
+    DOUBLE = "double"
+
 # =============================================================================
 # DOWNLOAD URLs
 # =============================================================================

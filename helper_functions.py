@@ -2,6 +2,7 @@ from dependencies import *
 from constants import *
 from paths import *
 
+
 # ————————————————————————————————————————————————————————————————————————————————————————————
 # GLOBAL FUNCTIONS
 
@@ -157,12 +158,12 @@ def map_predictor_name(predictor: PREDICTOR_TYPE, dataset: DATASET_TYPE):
 # ————————————————————————————————————————————————————————————————————————————————————————————
 # AAD FUNCTIONS
 
-def aad_single_classifier(eeg, true_att, true_ign, trf_att, trf_ign):
+def aad_single_classifier(eeg, true_att, true_ign, trf_att):
     """
     One generic TRF: reconstruct once, correlate against both stimuli.
     Returns True if reconstruction correlates more with attended stimulus.
     """
-    pred = eelbrain.convolve(trf_att, eeg).x
+    pred = eelbrain.convolve(trf_att.h_scaled, eeg).x
     r_att = np.abs(np.corrcoef(pred, true_att)[0, 1])
     r_ign = np.abs(np.corrcoef(pred, true_ign)[0, 1])
     return r_att > r_ign, r_att, r_ign
@@ -174,27 +175,30 @@ def aad_double_classifier(eeg, true_att, true_ign, att_trf, ign_trf):
     correlate each with its respective true stimulus.
     Returns True if attended reconstruction wins.
     """
-    pred_att = eelbrain.convolve(att_trf, eeg).x
-    pred_ign = eelbrain.convolve(ign_trf, eeg).x
+    pred_att = eelbrain.convolve(att_trf.h_scaled, eeg).x
+    pred_ign = eelbrain.convolve(ign_trf.h_scaled, eeg).x
     r_att = np.abs(np.corrcoef(pred_att, true_att)[0, 1])
     r_ign = np.abs(np.corrcoef(pred_ign, true_ign)[0, 1])
     return r_att > r_ign, r_att, r_ign
 
 
-def aad_classifier(predictors, classifier_fn, subjects, 
+def aad_classifier(predictors, subjects, 
                    generalised=GENERALISATION_TYPE.AVERAGE, 
-                   cv=CROSS_VALIDATION_TYPE.HOLD_OUT):
+                   cv=CROSS_VALIDATION_TYPE.HOLD_OUT, aad_type = AAD_APPROACH.SINGLE):
 
     att_predictor_name = get_attentional_predictor_name(predictors, ATTENTION_TYPE.ATTENDED)
     ign_predictor_name = get_attentional_predictor_name(predictors, ATTENTION_TYPE.IGNORED)
 
     att_trf_name = get_trf_model_name(DATASET_TYPE.FUGLSANG, predictors, ATTENTION_TYPE.ATTENDED, MODEL_TYPE.BACKWARD, generalised=generalised)
-    ign_trf_name = get_trf_model_name(DATASET_TYPE.FUGLSANG, predictors, ATTENTION_TYPE.IGNORED,  MODEL_TYPE.BACKWARD, generalised=generalised)
+
+    if (aad_type == AAD_APPROACH.DOUBLE):
+        ign_trf_name = get_trf_model_name(DATASET_TYPE.FUGLSANG, predictors, ATTENTION_TYPE.IGNORED,  MODEL_TYPE.BACKWARD, generalised=generalised)
 
     # For hold-out, one TRF for all subjects — load once
     if cv == CROSS_VALIDATION_TYPE.HOLD_OUT:
         trf_att = eelbrain.load.unpickle(FUGLSANG_GENERAL_TRF_DIR / f'hold_out_{att_trf_name}.pickle')
-        trf_ign = eelbrain.load.unpickle(FUGLSANG_GENERAL_TRF_DIR / f'hold_out_{ign_trf_name}.pickle')
+        if (aad_type == AAD_APPROACH.DOUBLE):
+            trf_ign = eelbrain.load.unpickle(FUGLSANG_GENERAL_TRF_DIR / f'hold_out_{ign_trf_name}.pickle')
 
     decisions = {}
     r_atts    = {}
@@ -205,7 +209,8 @@ def aad_classifier(predictors, classifier_fn, subjects,
         # For LOO, load the TRF that excluded this subject
         if cv == CROSS_VALIDATION_TYPE.LOO:
             trf_att = eelbrain.load.unpickle(FUGLSANG_GENERAL_TRF_DIR / f'loocv_{subject}_{att_trf_name}.pickle')
-            trf_ign = eelbrain.load.unpickle(FUGLSANG_GENERAL_TRF_DIR / f'loocv_{subject}_{ign_trf_name}.pickle')
+            if (aad_type == AAD_APPROACH.DOUBLE):
+                trf_ign = eelbrain.load.unpickle(FUGLSANG_GENERAL_TRF_DIR / f'loocv_{subject}_{ign_trf_name}.pickle')
 
         eeg = eelbrain.load.unpickle(
             FUGLSANG_EEG_DIR / subject / f'{subject}_eeg.pickle'
@@ -217,14 +222,17 @@ def aad_classifier(predictors, classifier_fn, subjects,
             FUGLSANG_PREDICTOR_DIR / subject / f'{ign_predictor_name}_concat.pickle'
         ).x
 
-        decision, r_att, r_ign = classifier_fn(eeg, true_att, true_ign, trf_att, trf_ign)
+        if (aad_type == AAD_APPROACH.DOUBLE):
+            decision, r_att, r_ign = aad_double_classifier(eeg, true_att, true_ign, trf_att, trf_ign)
+        else:
+            decision, r_att, r_ign = aad_single_classifier(eeg, true_att, true_ign, trf_att)
         decisions[subject] = decision
         r_atts[subject]    = r_att
         r_igns[subject]    = r_ign
         print(f"{subject}: r_att={r_att:.3f}, r_ign={r_ign:.3f}")
 
     acc = sum(decisions.values()) / len(subjects)
-    print(f"\n✅ Classification rate ({att_trf_name} vs {ign_trf_name}): {acc:.2%}")
+    print(f"\n✅ Classification rate ({predictors}): {acc:.2%}")
     print('\n' + '─' * 60 + '\n')
 
     return acc, decisions, r_atts, r_igns

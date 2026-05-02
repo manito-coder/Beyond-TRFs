@@ -26,3 +26,22 @@ from scipy.optimize import linear_sum_assignment
 from enum import Enum
 
 
+
+# ————————————————————————————————————————————————————————————————————————————————————————————
+# SPECIAL CLASSES
+class AveragedTRF:
+    """
+        Wraps only the averaged h_scaled, blocking access to stale BoostingResult fields.
+        Used to keep averaged TRFs in a class like BoostingResult but without fields which
+        would have stale data.
+    """
+
+    def __init__(self, h_scaled):
+        self.h_scaled = h_scaled
+
+    def __getattr__(self, name):
+        raise AttributeError(
+            f"'{name}' is not available on AveragedTRF — only 'h_scaled' is valid."
+        )
+
+
