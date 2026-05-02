@@ -24,7 +24,7 @@ class GENERALISATION_TYPE(Enum):
 
 class CROSS_VALIDATION_TYPE(Enum):
     HOLD_OUT = "hold_out"
-    LOO = "loo"
+    LOO = "loocv"
 
 class DATASET_TYPE(Enum):
     FUGLSANG = "fuglsang"
