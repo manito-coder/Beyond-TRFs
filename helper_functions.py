@@ -158,12 +158,12 @@ def map_predictor_name(predictor: PREDICTOR_TYPE, dataset: DATASET_TYPE):
 # ————————————————————————————————————————————————————————————————————————————————————————————
 # AAD FUNCTIONS
 
-def aad_single_classifier(eeg, true_att, true_ign, trf_att):
+def aad_single_classifier(eeg, true_att, true_ign, trf):
     """
     One generic TRF: reconstruct once, correlate against both stimuli.
     Returns True if reconstruction correlates more with attended stimulus.
     """
-    pred = eelbrain.convolve(trf_att.h_scaled, eeg).x
+    pred = eelbrain.convolve(trf.h_scaled, eeg).x
     r_att = np.abs(np.corrcoef(pred, true_att)[0, 1])
     r_ign = np.abs(np.corrcoef(pred, true_ign)[0, 1])
     return r_att > r_ign, r_att, r_ign
