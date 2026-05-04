@@ -7,6 +7,7 @@ import mne
 import re
 import os
 import pandas as pd
+import scipy
 import copy
 
 # IMPORT MODULES
