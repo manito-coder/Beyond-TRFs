@@ -164,8 +164,18 @@ def aad_single_classifier(eeg, true_att, true_ign, trf):
     Returns True if reconstruction correlates more with attended stimulus.
     """
     pred = eelbrain.convolve(trf.h_scaled, eeg).x
-    r_att = np.abs(np.corrcoef(pred, true_att)[0, 1])
-    r_ign = np.abs(np.corrcoef(pred, true_ign)[0, 1])
+
+    att = true_att.x if hasattr(true_att, 'x') else np.asarray(true_att)
+    ign = true_ign.x if hasattr(true_ign, 'x') else np.asarray(true_ign)
+
+    # convolve can produce pred that is 1 sample shorter than the envelopes
+    n    = min(pred.shape[-1], att.shape[-1], ign.shape[-1])
+    pred = pred[..., :n]
+    att  = att[...,  :n]
+    ign  = ign[...,  :n]
+
+    r_att = np.abs(np.corrcoef(pred, att)[0, 1])
+    r_ign = np.abs(np.corrcoef(pred, ign)[0, 1])
     return r_att > r_ign, r_att, r_ign
 
 
@@ -177,8 +187,17 @@ def aad_double_classifier(eeg, true_att, true_ign, att_trf, ign_trf):
     """
     pred_att = eelbrain.convolve(att_trf.h_scaled, eeg).x
     pred_ign = eelbrain.convolve(ign_trf.h_scaled, eeg).x
-    r_att = np.abs(np.corrcoef(pred_att, true_att)[0, 1])
-    r_ign = np.abs(np.corrcoef(pred_ign, true_ign)[0, 1])
+
+    att = true_att.x if hasattr(true_att, 'x') else np.asarray(true_att)
+    ign = true_ign.x if hasattr(true_ign, 'x') else np.asarray(true_ign)
+
+    # each convolve call can drift independently, so trim each pair separately
+    n_att = min(pred_att.shape[-1], att.shape[-1])
+    n_ign = min(pred_ign.shape[-1], ign.shape[-1])
+
+    r_att = np.abs(np.corrcoef(pred_att[..., :n_att], att[..., :n_att])[0, 1])
+    r_ign = np.abs(np.corrcoef(pred_ign[..., :n_ign], ign[..., :n_ign])[0, 1])
+
     return r_att > r_ign, r_att, r_ign
 
 
