@@ -22,8 +22,9 @@ from matplotlib import colors
 from tqdm import tqdm
 
 
-from scipy.stats import ttest_rel, pearsonr, ttest_1samp, zscore
+from scipy.stats import ttest_rel, ttest_ind, pearsonr, ttest_1samp, zscore, binomtest
 from scipy.optimize import linear_sum_assignment
+from statsmodels.stats.contingency_tables import mcnemar
 from enum import Enum
 
 
